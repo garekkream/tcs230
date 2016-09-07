@@ -7,4 +7,3 @@ all:
 
 clean:
 	make ARCH=arm -C $(KDIR) M=$(PWD) clean
-

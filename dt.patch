@@ -1,0 +1,49 @@
+diff --git a/arch/arm/boot/dts/am335x-boneblack.dts b/arch/arm/boot/dts/am335x-boneblack.dts
+index 55c0e95..ff9a855 100644
+--- a/arch/arm/boot/dts/am335x-boneblack.dts
++++ b/arch/arm/boot/dts/am335x-boneblack.dts
+@@ -64,6 +64,16 @@
+ 			AM33XX_IOPAD(0x9b0, PIN_OUTPUT_PULLDOWN | MUX_MODE3)	/* xdma_event_intr0 */
+ 		>;
+ 	};
++
++    tcs230_pins: tcs230_pins {
++        pinctrl-single,pins = <
++            AM33XX_IOPAD(0x824, PIN_OUTPUT | MUX_MODE7)         /* OE / Pin23*/
++            AM33XX_IOPAD(0x828, PIN_OUTPUT | MUX_MODE7)         /* S0 / Pin26*/
++            AM33XX_IOPAD(0x83c, PIN_OUTPUT | MUX_MODE7)         /* S1 / Pin46*/
++            AM33XX_IOPAD(0x838, PIN_OUTPUT | MUX_MODE7)         /* S2 / Pin47*/
++            AM33XX_IOPAD(0x82c, PIN_OUTPUT | MUX_MODE7)         /* OE / Pin27*/
++       >;
++    };
+ };
+ 
+ &lcdc {
+diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+index 1fafaad..436d96c 100644
+--- a/arch/arm/boot/dts/am33xx.dtsi
++++ b/arch/arm/boot/dts/am33xx.dtsi
+@@ -97,6 +97,23 @@
+ 		ranges;
+ 		ti,hwmods = "l3_main";
+ 
++        tcs230: tcs230 {
++            compatible = "taos,cts230";
++
++            pinctrl-names = "tcs230_pins";
++            pinctrl-0 = <&tcs230_pins>;
++
++            gpios = <&gpio1 23 GPIO_ACTIVE_HIGH
++                     &gpio1 26 GPIO_ACTIVE_LOW
++                     &gpio1 27 GPIO_ACTIVE_LOW
++                     &gpio1 46 GPIO_ACTIVE_LOW
++                     &gpio1 47 GPIO_ACTIVE_LOW>;
++
++            default-disable;
++            default-freq = <500>;   /* 10, 100, 500kHz */
++            default-mode = "clean"; /* clean, red, green. blue*/
++        };
++
+ 		l4_wkup: l4_wkup@44c00000 {
+ 			compatible = "ti,am3-l4-wkup", "simple-bus";
+ 			#address-cells = <1>;
