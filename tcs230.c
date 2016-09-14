@@ -13,6 +13,8 @@
 #define TCS_DEFAULT_FREQ	500
 #define TCS_DEFAULT_MODE	"clean"
 
+#define TCS_MODE_MAX_BUFFER	10
+
 
 enum {
 	TCS_GPIO_INDEX_OE = 0,
@@ -31,10 +33,73 @@ struct tcs_data {
 	char s3 :1;
 	char oe :1;
 	int gpios[5];
+	int freq;
+	char mode[TCS_MODE_MAX_BUFFER];
 };
 
 static struct tcs_data data;
 
+
+static void set_freq(uint32_t freq)
+{
+	data.freq = freq;
+
+	switch(data.freq) {
+		case 500:
+			data.s0 = 1;
+			data.s1 = 1;
+			break;
+		case 100:
+			data.s0 = 1;
+			data.s1 = 0;
+			break;
+		case 10:
+			data.s0 = 0;
+			data.s1 = 1;
+			break;
+		default:
+			data.s0 = 0;
+			data.s1 = 0;
+			break;
+	}
+
+	gpio_set_value(data.gpios[TCS_GPIO_INDEX_S0], data.s0);
+	gpio_set_value(data.gpios[TCS_GPIO_INDEX_S1], data.s1);
+}
+
+
+static void set_mode(const char *mode)
+{
+	memcpy((char *)data.mode, (const char *)mode, strlen(mode));
+
+	if(strcmp("clean", data.mode) == 0) {
+		data.s2 = 1;
+		data.s3 = 0;
+		goto set_value;
+	}
+
+	if(strcmp("red", data.mode) == 0) {
+		data.s2 = 0;
+		data.s3 = 0;
+		goto set_value;
+	}
+
+	if(strcmp("green", data.mode) == 0) {
+		data.s2 = 1;
+		data.s3 = 1;
+		goto set_value;
+	}
+
+	if(strcmp("blue", data.mode) == 0) {
+		data.s2 = 0;
+		data.s3 = 1;
+		goto set_value;
+	}
+
+set_value:
+	gpio_set_value(data.gpios[TCS_GPIO_INDEX_S2], data.s2);
+	gpio_set_value(data.gpios[TCS_GPIO_INDEX_S3], data.s3);
+}
 
 
 static ssize_t enable_store(struct device *dev, struct device_attribute *attr, const char *buff, size_t count)
@@ -64,34 +129,48 @@ static DEVICE_ATTR_RW(enable);
 
 static ssize_t freq_store(struct device *dev, struct device_attribute *attr, const char *buff, size_t count)
 {
+	int freq = 0;
 
-	return 0;
+	sscanf(buff, "%d", &freq);
+
+	if((freq != 500) || (freq != 100) || (freq != 10))
+		pr_err("[%s]: %d frequency unknown (possible 500, 100, 10 kHz)", DRV_NAME, freq);
+	else
+		set_freq(freq);
+
+	return count;
 }
 static ssize_t freq_show(struct device *dev, struct device_attribute *attr, char *buff)
 {
-
-	return 0;
+	return scnprintf(buff, PAGE_SIZE, "%d\n", data.freq);
 }
 static DEVICE_ATTR_RW(freq);
 
 
 static ssize_t color_store(struct device *dev, struct device_attribute *attr, const char *buff, size_t count)
 {
+	char color[TCS_MODE_MAX_BUFFER] = {0x00};
 
-	return 0;
+	sscanf(buff, "%10s", color);
+	set_mode(color);
+
+	return count;
 }
 static ssize_t color_show(struct device *dev, struct device_attribute *attr, char *buff)
 {
-
-	return 0;
+	return scnprintf(buff, PAGE_SIZE, "%s\n", data.mode);
 }
 static DEVICE_ATTR_RW(color);
 
 
 static ssize_t dump_show(struct device *dev, struct device_attribute *attr, char *buff)
 {
-
-	return 0;
+	return scnprintf(buff, PAGE_SIZE, "Mode: \t%s (s1: %d, s2: %d)\n \
+					   Frequency: \t%d (s0: %d, s2: %d)\n \
+					   Enabled: \t%s\n",
+					   data.mode, data.s1, data.s2,
+					   data.freq, data.s0, data.s1,
+					   (data.oe == 0) ? "enabled" : "false");
 }
 static DEVICE_ATTR_RO(dump);
 
@@ -108,64 +187,6 @@ static struct attribute *tcs_attrs[] = {
 static struct attribute_group tcs_attrs_group = {
 	.attrs = tcs_attrs,
 };
-
-
-static void set_freq(uint32_t freq)
-{
-	switch(freq) {
-		case 500:
-			data.s0 = 1;
-			data.s1 = 1;
-			break;
-		case 100:
-			data.s0 = 1;
-			data.s1 = 0;
-			break;
-		case 10:
-			data.s0 = 0;
-			data.s1 = 1;
-			break;
-		default:
-			data.s0 = 0;
-			data.s1 = 0;
-			break;
-	}
-
-	gpio_set_value(data.gpios[TCS_GPIO_INDEX_S0], data.s0);
-	gpio_set_value(data.gpios[TCS_GPIO_INDEX_S1], data.s1);
-}
-
-
-static void set_mode(const char *mode)
-{
-	if(strcmp("clean", mode) == 0) {
-		data.s2 = 1;
-		data.s3 = 0;
-		goto set_value;
-	}
-
-	if(strcmp("red", mode) == 0) {
-		data.s2 = 0;
-		data.s3 = 0;
-		goto set_value;
-	}
-
-	if(strcmp("green", mode) == 0) {
-		data.s2 = 1;
-		data.s3 = 1;
-		goto set_value;
-	}
-
-	if(strcmp("blue", mode) == 0) {
-		data.s2 = 0;
-		data.s3 = 1;
-		goto set_value;
-	}
-
-set_value:
-	gpio_set_value(data.gpios[TCS_GPIO_INDEX_S2], data.s2);
-	gpio_set_value(data.gpios[TCS_GPIO_INDEX_S3], data.s3);
-}
 
 
 static int parse_dt(struct platform_device *pdev)
